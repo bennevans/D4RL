@@ -1,0 +1,2 @@
+To run with rendering headless
+LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so xvfb-run ipython

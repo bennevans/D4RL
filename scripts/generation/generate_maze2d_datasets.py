@@ -7,7 +7,7 @@ import pickle
 import gzip
 import h5py
 import argparse
-
+import matplotlib.pyplot as plt
 
 def reset_data():
     return {'observations': [],
@@ -85,7 +85,9 @@ def main():
             s = ns
 
         if args.render:
-            env.render()
+            rgb = env.render(mode='rgb_array')
+            plt.imshow(rgb)
+            plt.show()
 
     
     if args.noisy:

@@ -49,17 +49,19 @@ def main():
     parser.add_argument('--num_samples', type=int, default=int(1e6), help='Num samples to collect')
     args = parser.parse_args()
 
-    frame_skip = 10
-    p_gain = 1.0
+    frame_skip = 3
+    p_gain = 5.0
     d_gain = -1
-    solve_thresh = 0.2
+    solve_thresh = 0.1
+    time_step = "0.02"
+    integrator = "RK4"
 
-    env = gym.make(args.env_name, frame_skip=frame_skip)
+    env = gym.make(args.env_name, frame_skip=frame_skip, integrator=integrator, time_step=time_step)
     maze = env.str_maze_spec
     max_episode_steps = env._max_episode_steps
 
     controller = waypoint_controller.WaypointController(maze, solve_thresh=solve_thresh, p_gain=p_gain, d_gain=d_gain)
-    env = maze_model.MazeEnv(maze, frame_skip=frame_skip)
+    env = maze_model.MazeEnv(maze, frame_skip=frame_skip, integrator=integrator, time_step=time_step)
 
     env.set_target()
     s = env.reset()
@@ -97,6 +99,11 @@ def main():
             done = True
         append_data(data, s, act, env._target, done, env.sim.data, random)
 
+        rgb = env.render(mode='rgb_array', camera_name='topview')
+        resized = cv2.resize(rgb, im_shape, interpolation=cv2.INTER_CUBIC)
+        images[i] = resized
+
+
         ns, _, _, _ = env.step(act)
 
         if len(data['observations']) % 10000 == 0:
@@ -109,7 +116,7 @@ def main():
             ts = 0
         else:
             s = ns
-
+        """
         # if args.render:
         # env.render()
         rgb = env.render(mode='rgb_array', camera_name='topview')
@@ -131,12 +138,12 @@ def main():
             # plt.imsave('{}.png'.format(im_shape[0]), resized)
             # # plt.show()
             # exit()
-
+        """
     
     if args.noisy:
         fname = '%s-noisy.hdf5' % args.env_name
     else:
-        fname = '{}-{}-fs-{}-p-{}-d-{}-s-{}.hdf5'.format(args.env_name, args.num_samples, frame_skip, p_gain, d_gain, solve_thresh)
+        fname = '{}-{}-fs-{}-p-{}-d-{}-s-{}-ts-{}-int-{}-pre.hdf5'.format(args.env_name, args.num_samples, frame_skip, p_gain, d_gain, solve_thresh, time_step, integrator)
     dataset = h5py.File(fname, 'w')
     npify(data)
     for k in data:

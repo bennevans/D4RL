@@ -35,6 +35,7 @@ def point_maze(maze_str):
 
     mjcmodel = MJCModel('point_maze')
     mjcmodel.root.compiler(inertiafromgeom="true", angle="radian", coordinate="local")
+    # mjcmodel.root.option(timestep="0.01", gravity="0 0 0", iterations="20", integrator="Euler")
     mjcmodel.root.option(timestep="0.01", gravity="0 0 0", iterations="20", integrator="Euler")
     default = mjcmodel.root.default()
     default.joint(damping=1, limited='false')
@@ -55,6 +56,8 @@ def point_maze(maze_str):
 
     worldbody = mjcmodel.root.worldbody()
     worldbody.geom(name='ground',size="40 40 0.25",pos="0 0 -0.1",type="plane",contype=1,conaffinity=0,material="groundplane")
+
+    camera = worldbody.camera(name='topview', pos=[3.0,3.0,7], fovy=30, xyaxes=[1,0,0,0,1,0])
 
     particle = worldbody.body(name='particle', pos=[1.2,1.2,0])
     particle.geom(name='particle_geom', type='sphere', size=0.1, rgba='0.0 0.0 1.0 0.0', contype=1)
@@ -78,7 +81,6 @@ def point_maze(maze_str):
     actuator = mjcmodel.root.actuator()
     actuator.motor(joint="ball_x", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
     actuator.motor(joint="ball_y", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
-
     return mjcmodel
 
 
@@ -158,6 +160,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  maze_spec=U_MAZE,
                  reward_type='dense',
                  reset_target=False,
+                 frame_skip=1,
                  **kwargs):
         offline_env.OfflineEnv.__init__(self, **kwargs)
 
@@ -167,12 +170,15 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.reward_type = reward_type
         self.reset_locations = list(zip(*np.where(self.maze_arr == EMPTY)))
         self.reset_locations.sort()
+        self.frame_skip = frame_skip
 
         self._target = np.array([0.0,0.0])
 
         model = point_maze(maze_spec)
         with model.asfile() as f:
-            mujoco_env.MujocoEnv.__init__(self, model_path=f.name, frame_skip=1)
+            print(f.name)
+            # import ipdb; ipdb.set_trace()
+            mujoco_env.MujocoEnv.__init__(self, model_path=f.name, frame_skip=frame_skip)
         utils.EzPickle.__init__(self)
 
         # Set the default goal (overriden by a call to set_target)
@@ -186,6 +192,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
             # If no goal, use the first empty tile
             self.set_target(np.array(self.reset_locations[0]).astype(self.observation_space.dtype))
         self.empty_and_goal_locations = self.reset_locations + self.goal_locations
+
+        self.frame_skip = frame_skip
 
     def step(self, action):
         action = np.clip(action, -1.0, 1.0)

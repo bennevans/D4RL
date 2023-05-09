@@ -63,6 +63,8 @@ class WaypointController(object):
         #print('Computing waypoints from %s to %s' % (start, target))
         start = self.gridify_state(start)
         start_idx = self.env.gs.xy_to_idx(start)
+        start_idx = max(0, start_idx)
+        start_idx = min(self.env.gs._GridSpec__w*self.env.gs._GridSpec__h - 1, start_idx)
         target = self.gridify_state(target)
         target_idx = self.env.gs.xy_to_idx(target)
         self._waypoint_idx = 0

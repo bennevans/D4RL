@@ -30,13 +30,13 @@ def parse_maze(maze_str):
     return maze_arr
 
 
-def point_maze(maze_str):
+def point_maze(maze_str, time_step="0.01", integrator="Euler"):
     maze_arr = parse_maze(maze_str)
 
     mjcmodel = MJCModel('point_maze')
     mjcmodel.root.compiler(inertiafromgeom="true", angle="radian", coordinate="local")
     # mjcmodel.root.option(timestep="0.01", gravity="0 0 0", iterations="20", integrator="Euler")
-    mjcmodel.root.option(timestep="0.01", gravity="0 0 0", iterations="20", integrator="Euler")
+    mjcmodel.root.option(timestep=time_step, gravity="0 0 0", iterations="20", integrator=integrator)
     default = mjcmodel.root.default()
     default.joint(damping=1, limited='false')
     default.geom(friction=".5 .1 .1", density="1000", margin="0.002", condim="1", contype="2", conaffinity="1")
@@ -161,6 +161,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  reward_type='dense',
                  reset_target=False,
                  frame_skip=1,
+                 time_step="0.01",
+                 integrator="Euler",
                  **kwargs):
         offline_env.OfflineEnv.__init__(self, **kwargs)
 
@@ -171,10 +173,12 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.reset_locations = list(zip(*np.where(self.maze_arr == EMPTY)))
         self.reset_locations.sort()
         self.frame_skip = frame_skip
+        self.time_step = time_step
+        self.integrator = integrator
 
         self._target = np.array([0.0,0.0])
-
-        model = point_maze(maze_spec)
+        print(time_step, integrator)
+        model = point_maze(maze_spec, time_step=self.time_step, integrator=self.integrator)
         with model.asfile() as f:
             print(f.name)
             # import ipdb; ipdb.set_trace()

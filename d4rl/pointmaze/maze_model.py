@@ -29,8 +29,10 @@ def parse_maze(maze_str):
                 raise ValueError('Unknown tile type: %s' % tile)
     return maze_arr
 
+OBSCURE_CENTER = 'center'
 
-def point_maze(maze_str, time_step="0.01", integrator="Euler"):
+
+def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSCURE_CENTER):
     maze_arr = parse_maze(maze_str)
 
     mjcmodel = MJCModel('point_maze')
@@ -81,6 +83,16 @@ def point_maze(maze_str, time_step="0.01", integrator="Euler"):
     actuator = mjcmodel.root.actuator()
     actuator.motor(joint="ball_x", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
     actuator.motor(joint="ball_y", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
+
+    if obscure_mode == OBSCURE_CENTER:
+        # print(width, height)
+        worldbody.geom(conaffinity=1,
+                          type='box',
+                            name='obscure',
+                            material='wall',
+                            pos=[width/2.0+0.5,height/2.0+1.5,0.5],
+                            size=[0.5,0.5,0.2])
+
     return mjcmodel
 
 
@@ -255,3 +267,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
     def viewer_setup(self):
         pass
 
+if __name__ == '__main__':
+    model = point_maze(U_MAZE)
+    with model.asfile() as f:
+        for line in f.file.readlines():
+            print(line, end='')

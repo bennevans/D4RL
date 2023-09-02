@@ -175,6 +175,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  frame_skip=1,
                  time_step="0.01",
                  integrator="Euler",
+                 obscure_mode=OBSCURE_CENTER,
                  **kwargs):
         offline_env.OfflineEnv.__init__(self, **kwargs)
 
@@ -190,7 +191,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
 
         self._target = np.array([0.0,0.0])
         print(time_step, integrator)
-        model = point_maze(maze_spec, time_step=self.time_step, integrator=self.integrator)
+        model = point_maze(maze_spec, time_step=self.time_step, integrator=self.integrator, obscure_mode=obscure_mode)
         with model.asfile() as f:
             print(f.name)
             # import ipdb; ipdb.set_trace()

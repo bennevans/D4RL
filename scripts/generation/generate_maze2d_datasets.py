@@ -63,7 +63,7 @@ def main():
     parser.add_argument('--render', action='store_true', help='Render trajectories')
     parser.add_argument('--noisy', action='store_true', help='Noisy actions')
     parser.add_argument('--env_name', type=str, default='maze2d-umaze-v1', help='Maze type')
-    parser.add_argument('--num_samples', type=int, default=int(1e6), help='Num samples to collect')
+    parser.add_argument('--num_samples', type=int, default=int(500000), help='Num samples to collect')
     parser.add_argument('--fname', type=str, default=None, help='filename to save to')
     args = parser.parse_args()
 

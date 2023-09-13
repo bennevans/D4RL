@@ -30,9 +30,12 @@ def parse_maze(maze_str):
     return maze_arr
 
 OBSCURE_CENTER = 'center'
+OBSCURE_3 = '3'
 
+ANGLE_ACCEL = 'angle_accel'
+XY_ACCEL = 'xy_accel'
 
-def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSCURE_CENTER):
+def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSCURE_3, control_mode=XY_ACCEL):
     maze_arr = parse_maze(maze_str)
 
     mjcmodel = MJCModel('point_maze')
@@ -64,8 +67,17 @@ def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSC
     particle = worldbody.body(name='particle', pos=[1.2,1.2,0])
     particle.geom(name='particle_geom', type='sphere', size=0.1, rgba='0.0 0.0 1.0 0.0', contype=1)
     particle.site(name='particle_site', pos=[0.0,0.0,0], size=0.2, rgba='0.3 0.6 0.3 1')
-    particle.joint(name='ball_x', type='slide', pos=[0,0,0], axis=[1,0,0])
-    particle.joint(name='ball_y', type='slide', pos=[0,0,0], axis=[0,1,0])
+
+    particle.camera(name="fpv", pos=[0.0,0.0,0.0], xyaxes=[1,0,0,0,0,1], fovy=60)
+
+
+    if control_mode == ANGLE_ACCEL:
+        particle.joint(name='ball_rot', type='hinge', pos=[0,0,0], axis=[0,0,1])
+        particle.joint(name='ball_x', type='slide', pos=[0,0,0], axis=[1,0,0])
+        particle.joint(name='ball_y', type='slide', pos=[0,0,0], axis=[0,1,0])
+    elif control_mode == XY_ACCEL:
+        particle.joint(name='ball_x', type='slide', pos=[0,0,0], axis=[1,0,0])
+        particle.joint(name='ball_y', type='slide', pos=[0,0,0], axis=[0,1,0])
 
     worldbody.site(name='target_site', pos=[0.0,0.0,0], size=0.2, material='target')
 
@@ -80,17 +92,44 @@ def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSC
                                pos=[w+1.0,h+1.0,0],
                                size=[0.5,0.5,0.2])
 
+
     actuator = mjcmodel.root.actuator()
-    actuator.motor(joint="ball_x", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
-    actuator.motor(joint="ball_y", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
+    if control_mode == ANGLE_ACCEL:
+        # actuator.motor(joint="ball_y", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
+        # actuator.motor(joint="ball_rot", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
+        # actuator.motor(joint="ball_rot", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
+        # actuator.motor(joint="ball_mov", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
+        actuator.position(joint="ball_rot", ctrllimited=True, ctrlrange=[-np.pi, np.pi])
+        actuator.velocity(joint="ball_x", ctrllimited=False)
+    elif control_mode == XY_ACCEL:
+        actuator.motor(joint="ball_x", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
+        actuator.motor(joint="ball_y", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
 
     if obscure_mode == OBSCURE_CENTER:
-        # print(width, height)
         worldbody.geom(conaffinity=1,
                           type='box',
-                            name='obscure',
+                            name='obscure1',
                             material='wall',
                             pos=[width/2.0+0.5,height/2.0+1.5,0.5],
+                            size=[0.5,0.5,0.2])
+    elif obscure_mode == OBSCURE_3:
+        worldbody.geom(conaffinity=1,
+                          type='box',
+                            name='obscure1',
+                            material='wall',
+                            pos=[width/2.0+0.5,height/2.0+1.5,0.5],
+                            size=[0.5,0.5,0.2])
+        worldbody.geom(conaffinity=1,
+                          type='box',
+                            name='obscure2',
+                            material='wall',
+                            pos=[width/2.0 - 0.5,height/2.0-0.5,0.5],
+                            size=[0.5,0.5,0.2])
+        worldbody.geom(conaffinity=1,
+                          type='box',
+                            name='obscure3',
+                            material='wall',
+                            pos=[width/2.0+1.5,height/2.0-0.5,0.5],
                             size=[0.5,0.5,0.2])
 
     return mjcmodel
@@ -175,7 +214,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  frame_skip=1,
                  time_step="0.01",
                  integrator="Euler",
-                 obscure_mode=OBSCURE_CENTER,
+                 obscure_mode=OBSCURE_3,
                  **kwargs):
         offline_env.OfflineEnv.__init__(self, **kwargs)
 

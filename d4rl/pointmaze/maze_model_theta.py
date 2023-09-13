@@ -62,13 +62,14 @@ def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSC
     worldbody = mjcmodel.root.worldbody()
     worldbody.geom(name='ground',size="40 40 0.25",pos="0 0 -0.1",type="plane",contype=1,conaffinity=0,material="groundplane")
 
-    camera = worldbody.camera(name='topview', pos=[3.0,3.0,7], fovy=30, xyaxes=[1,0,0,0,1,0])
+    top_camera = worldbody.camera(name='topview', pos=[3.0,3.0,7], fovy=30, xyaxes=[1,0,0,0,1,0])
 
     particle = worldbody.body(name='particle', pos=[1.2,1.2,0])
     particle.geom(name='particle_geom', type='sphere', size=0.1, rgba='0.0 0.0 1.0 0.0', contype=1)
     particle.site(name='particle_site', pos=[0.0,0.0,0], size=0.2, rgba='0.3 0.6 0.3 1')
 
-    particle.camera(name="fpv", pos=[0.0,0.0,0.0], xyaxes=[1,0,0,0,0,1], fovy=60)
+    fpv_camera = particle.camera(name="fpv", pos=[0.0,0.0,0.0], xyaxes=[0,-1,0,0,0,1], fovy=60)
+    top_rotate_camera = particle.camera(name="top_rotate", pos=[0.0,0.0,7.0], xyaxes=[1,0,0,0,1,0], fovy=60)
 
 
     if control_mode == ANGLE_ACCEL:
@@ -82,15 +83,15 @@ def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSC
     worldbody.site(name='target_site', pos=[0.0,0.0,0], size=0.2, material='target')
 
     width, height = maze_arr.shape
-    for w in range(width):
-        for h in range(height):
-            if maze_arr[w,h] == WALL:
-                worldbody.geom(conaffinity=1,
-                               type='box',
-                               name='wall_%d_%d'%(w,h),
-                               material='wall',
-                               pos=[w+1.0,h+1.0,0],
-                               size=[0.5,0.5,0.2])
+    # for w in range(width):
+    #     for h in range(height):
+    #         if maze_arr[w,h] == WALL:
+    #             worldbody.geom(conaffinity=1,
+    #                            type='box',
+    #                            name='wall_%d_%d'%(w,h),
+    #                            material='wall',
+    #                            pos=[w+1.0,h+1.0,0],
+    #                            size=[0.5,0.5,0.2])
 
 
     actuator = mjcmodel.root.actuator()
@@ -235,7 +236,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         with model.asfile() as f:
             print(f.name)
             # import ipdb; ipdb.set_trace()
-            mujoco_env.MujocoEnv.__init__(self, model_path=f.name, frame_skip=frame_skip)
+            mujoco_env.MujocoEnv.__init__(self, model_path=f.name,
+                                          frame_skip=frame_skip)
         utils.EzPickle.__init__(self)
 
         # Set the default goal (overriden by a call to set_target)
@@ -315,7 +317,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         idx = self.np_random.choice(len(self.empty_and_goal_locations))
         reset_location = np.array(self.empty_and_goal_locations[idx]).astype(self.observation_space.dtype)
         reset_angle = self.np_random.uniform(low=-np.pi, high=np.pi)
-        reset_location = np.concatenate([reset_location, [reset_angle]])
+        reset_location = 0.0 #np.concatenate([reset_location, [reset_angle]])
         qpos = reset_location + self.np_random.uniform(low=-.1, high=.1, size=self.model.nq)
         qvel = self.init_qvel + self.np_random.randn(self.model.nv) * .1
         self.set_state(qpos, qvel)
@@ -346,12 +348,24 @@ if __name__ == '__main__':
         env.reset()
         forward_action = np.array([0.0, 0.1])
         rotate_action = np.array([1.0, 0.0])
+        zero_action = np.array([0.0, 0.0])
         while True:
             for i in range(100):
-                env.render()
+                env.render(camera_name="fpv")
                 env.step(forward_action)
-                print(i, env.data.qpos, env.data.qvel)
+                print('fwd', env.data.qpos, env.data.qvel)
+
+            for i in range(100):
+                env.render(camera_name="fpv")
+                env.step(-forward_action)
+                print('fwd', env.data.qpos, env.data.qvel)
+            
             for i in range(100):
                 env.render()
+                env.step(zero_action)
+                print('stop', i, env.data.qpos, env.data.qvel)
+
+            for i in range(100):
+                env.render(camera_name="fpv")
                 env.step(rotate_action)
-                print('\t', i, env.data.qpos, env.data.qvel)
+                print('turn', i, env.data.qpos, env.data.qvel)

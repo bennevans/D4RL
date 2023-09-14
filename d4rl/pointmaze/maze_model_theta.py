@@ -297,7 +297,13 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         return ob, reward, done, {}
 
     def _get_obs(self):
-        return np.concatenate([self.sim.data.qpos, self.sim.data.qvel, self._target]).ravel()
+        qpos = self.sim.data.qpos
+        qvel = self.sim.data.qvel
+        theta = qpos[2]
+        sin_theta = np.sin(theta)
+        cos_theta = np.cos(theta)
+        return np.concatenate([qpos[:2], [sin_theta, cos_theta], qvel, qpos[:2] - self._target]).ravel()
+        # return np.concatenate([self.sim.data.qpos, self.sim.data.qvel, self._target]).ravel()
 
     def get_target(self):
         return self._target

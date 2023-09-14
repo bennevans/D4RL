@@ -1,6 +1,18 @@
 from .maze_model import MazeEnv, OPEN, U_MAZE, MEDIUM_MAZE, LARGE_MAZE, U_MAZE_EVAL, MEDIUM_MAZE_EVAL, LARGE_MAZE_EVAL
 from gym.envs.registration import register
 
+from .maze_model_theta import MazeEnv as MazeEnvTheta
+
+register(
+    id='maze2d-theta-umaze-v0',
+    entry_point='d4rl.pointmaze:MazeEnvTheta',
+    max_episode_steps=150,
+    kwargs={
+        'maze_spec':U_MAZE,
+        'reward_type':'sparse',
+    }
+)
+
 register(
     id='maze2d-open-v0',
     entry_point='d4rl.pointmaze:MazeEnv',

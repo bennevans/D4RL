@@ -83,23 +83,19 @@ def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSC
     worldbody.site(name='target_site', pos=[0.0,0.0,0], size=0.2, material='target')
 
     width, height = maze_arr.shape
-    # for w in range(width):
-    #     for h in range(height):
-    #         if maze_arr[w,h] == WALL:
-    #             worldbody.geom(conaffinity=1,
-    #                            type='box',
-    #                            name='wall_%d_%d'%(w,h),
-    #                            material='wall',
-    #                            pos=[w+1.0,h+1.0,0],
-    #                            size=[0.5,0.5,0.2])
+    for w in range(width):
+        for h in range(height):
+            if maze_arr[w,h] == WALL:
+                worldbody.geom(conaffinity=1,
+                               type='box',
+                               name='wall_%d_%d'%(w,h),
+                               material='wall',
+                               pos=[w+1.0,h+1.0,0],
+                               size=[0.5,0.5,0.2])
 
 
     actuator = mjcmodel.root.actuator()
     if control_mode == ANGLE_ACCEL:
-        # actuator.motor(joint="ball_y", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
-        # actuator.motor(joint="ball_rot", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
-        # actuator.motor(joint="ball_rot", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
-        # actuator.motor(joint="ball_mov", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
         actuator.velocity(joint="ball_rot", ctrllimited=False)
         actuator.motor(joint="ball_x", ctrllimited=False)
     elif control_mode == XY_ACCEL:
@@ -217,9 +213,12 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  integrator="Euler",
                  obscure_mode=OBSCURE_3,
                  control_mode=ANGLE_ACCEL,
+                 theta_scale=2000,
+                 x_scale=1000,
                  **kwargs):
         offline_env.OfflineEnv.__init__(self, **kwargs)
 
+        self.render_mode = None
         self.reset_target = reset_target
         self.str_maze_spec = maze_spec
         self.maze_arr = parse_maze(maze_spec)
@@ -229,6 +228,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.frame_skip = frame_skip
         self.time_step = time_step
         self.integrator = integrator
+        self.theta_scale = theta_scale
+        self.x_scale = x_scale
 
         self._target = np.array([0.0,0.0])
         print(time_step, integrator)
@@ -254,18 +255,20 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
 
         self.frame_skip = frame_skip
 
-    def step(self, action): # [change in theta and acceleration in x]
-        forward_scale = 100.0
-        turn_scale = 400.0
+        # import ipdb; ipdb.set_trace()
+        self.action_space.low = np.array([-1.0, -1.0])
+        self.action_space.high = np.array([1.0, 1.0])
 
-        action = np.clip(action, -1.0, 1.0)
+    def step(self, action): # [change in theta and acceleration in x]
+
+        # action = np.clip(action, -1.0, 1.0)
         qpos = self.sim.data.qpos.copy()
         qvel = self.sim.data.qvel.copy()
         theta = qpos[2]
         xdot, ydot = qvel[0:2]
 
-        theta_vel = action[0] * turn_scale
-        x_accel = action[1] * forward_scale
+        theta_vel = action[0] * self.theta_scale
+        x_accel = action[1] * self.x_scale
 
         # print('theta_vel: ', theta_vel)
         # print('x_accel: ', x_accel)
@@ -294,7 +297,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         return ob, reward, done, {}
 
     def _get_obs(self):
-        return np.concatenate([self.sim.data.qpos, self.sim.data.qvel]).ravel()
+        return np.concatenate([self.sim.data.qpos, self.sim.data.qvel, self._target]).ravel()
 
     def get_target(self):
         return self._target
@@ -303,7 +306,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         if target_location is None:
             idx = self.np_random.choice(len(self.empty_and_goal_locations))
             reset_location = np.array(self.empty_and_goal_locations[idx]).astype(self.observation_space.dtype)
-            target_location = reset_location + self.np_random.uniform(low=-.1, high=.1, size=self.model.nq)
+            target_location = reset_location + self.np_random.uniform(low=-.1, high=.1, size=len(reset_location))
         self._target = target_location
 
     def set_marker(self):
@@ -317,7 +320,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         idx = self.np_random.choice(len(self.empty_and_goal_locations))
         reset_location = np.array(self.empty_and_goal_locations[idx]).astype(self.observation_space.dtype)
         reset_angle = self.np_random.uniform(low=-np.pi, high=np.pi)
-        reset_location = 0.0 #np.concatenate([reset_location, [reset_angle]])
+        reset_location = np.concatenate([reset_location, [reset_angle]])
         qpos = reset_location + self.np_random.uniform(low=-.1, high=.1, size=self.model.nq)
         qvel = self.init_qvel + self.np_random.randn(self.model.nv) * .1
         self.set_state(qpos, qvel)

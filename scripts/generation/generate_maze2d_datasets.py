@@ -12,6 +12,8 @@ import cv2
 from tqdm import tqdm
 import os
 
+from stable_baselines3 import PPO
+
 def reset_data():
     return {'observations': [],
             'actions': [],
@@ -62,11 +64,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--render', action='store_true', help='Render trajectories')
     parser.add_argument('--noisy', action='store_true', help='Noisy actions')
-    parser.add_argument('--env_name', type=str, default='maze2d-umaze-v1', help='Maze type')
+    parser.add_argument('--env_name', type=str, default='maze2d-theta-umaze-v0', help='Maze type', choices=['maze2d-umaze-v1','maze2d-theta-umaze-v0'])
     parser.add_argument('--num_samples', type=int, default=int(500000), help='Num samples to collect')
-    parser.add_argument('--fname', type=str, default=None, help='filename to save to')
+    parser.add_argument('--fname', type=str, default=None, required=True, help='filename to save to')
+    parser.add_argument('--policy', type=str, default=None, help='filename to load from')
+    parser.add_argument('--camera', type=str, default='topview', help='Camera name', choices=['topview', 'fpv', 'top_rotate'])
     args = parser.parse_args()
-
+    print('args.policy', args.policy)
     if args.noisy:
         fname = '%s-noisy.hdf5' % args.env_name
     else:
@@ -91,8 +95,11 @@ def main():
     maze = env.str_maze_spec
     max_episode_steps = env._max_episode_steps
 
-    controller = waypoint_controller.WaypointController(maze, solve_thresh=solve_thresh, p_gain=p_gain, d_gain=d_gain)
-    env = maze_model.MazeEnv(maze, frame_skip=frame_skip, integrator=integrator, time_step=time_step)
+    if args.policy is not None:
+        model = PPO.load(args.policy)
+    else:
+        controller = waypoint_controller.WaypointController(maze, solve_thresh=solve_thresh, p_gain=p_gain, d_gain=d_gain)
+    # env = maze_model.MazeEnv(maze, frame_skip=frame_skip, integrator=integrator, time_step=time_step)
 
     env.set_target()
     s = env.reset()
@@ -111,7 +118,13 @@ def main():
     for i in tqdm(range(args.num_samples)):
         position = s[0:2]
         velocity = s[2:4]
-        act, done = controller.get_action(position, velocity, env._target)
+        if args.policy is not None:
+            print(s.shape)
+            print(env)
+            act = model.predict(s)[0]
+        else:
+            act, done = controller.get_action(position, velocity, env._target)
+
         act = act + np.random.randn(*act.shape)*0.5
 
         type_act = np.random.choice(['regular', 'zero', 'random'], p=[regular_act_prob, zero_act_prob, rand_act_prob])
@@ -128,9 +141,15 @@ def main():
         act = np.clip(act, -1.0, 1.0)
         if ts >= max_episode_steps:
             done = True
-        append_data(data, s, act, env._target, done, env.sim.data, random)
 
-        rgb = env.render(mode='rgb_array', camera_name='topview')
+        if '_target' in dir(env):
+            target = env._target
+        else:
+            target = env.env._target
+
+        append_data(data, s, act, target, done, env.sim.data, random)
+
+        rgb = env.render(mode='rgb_array', camera_name=args.camera)
         resized = cv2.resize(rgb, im_shape, interpolation=cv2.INTER_CUBIC)
         images[i] = resized
 

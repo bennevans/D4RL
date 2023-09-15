@@ -340,6 +340,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         pass
 
 if __name__ == '__main__':
+    import gym
     print_xml = False
     if print_xml:
         model = point_maze(U_MAZE)
@@ -347,7 +348,8 @@ if __name__ == '__main__':
             for line in f.file.readlines():
                 print(line, end='')
     else:
-        env = MazeEnv(maze_spec=U_MAZE, reward_type='dense', obscure_mode=None)
+        # env = MazeEnv(maze_spec=U_MAZE, reward_type='dense', obscure_mode=None)
+        env = gym.make("maze2d-theta-umaze-v0", reward_type='dense', obscure_mode=None)
         env.reset()
         forward_action = np.array([0.0, 0.1])
         rotate_action = np.array([1.0, 0.0])

@@ -108,9 +108,10 @@ def main():
 
     data = reset_data()
     ts = 0
-    rand_act_prob = 0.2
+    rand_act_prob = 0.0
     zero_act_prob = 0.1
     regular_act_prob = 1 - rand_act_prob - zero_act_prob
+    act_std = 0.0
 
     im_shape = (100, 100)
     images = np.zeros((args.num_samples, *im_shape, 3), dtype=np.uint8)
@@ -119,13 +120,11 @@ def main():
         position = s[0:2]
         velocity = s[2:4]
         if args.policy is not None:
-            print(s.shape)
-            print(env)
-            act = model.predict(s)[0]
+            act = model.predict(s, deterministic=True)[0]
         else:
             act, done = controller.get_action(position, velocity, env._target)
 
-        act = act + np.random.randn(*act.shape)*0.5
+        act = act + np.random.randn(*act.shape)*act_std
 
         type_act = np.random.choice(['regular', 'zero', 'random'], p=[regular_act_prob, zero_act_prob, rand_act_prob])
         if type_act == 'zero':
@@ -193,6 +192,7 @@ def main():
     dataset.attrs['num_samples'] = args.num_samples
     dataset.attrs['env_name'] = args.env_name
     dataset.attrs['image_size'] = im_shape
+    dataset.attrs['act_std'] = act_std
     
 
     dataset.close()

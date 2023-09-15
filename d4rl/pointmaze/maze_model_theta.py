@@ -213,8 +213,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  integrator="Euler",
                  obscure_mode=OBSCURE_3,
                  control_mode=ANGLE_ACCEL,
-                 theta_scale=2000,
-                 x_scale=1000,
+                 theta_scale=4000,
+                 x_scale=500,
                  **kwargs):
         offline_env.OfflineEnv.__init__(self, **kwargs)
 

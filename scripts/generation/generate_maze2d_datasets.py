@@ -119,8 +119,15 @@ def main():
     for i in tqdm(range(args.num_samples)):
         position = s[0:2]
         velocity = s[2:4]
+
+        if '_target' in dir(env):
+            target = env._target
+        else:
+            target = env.env._target
+
         if args.policy is not None:
             act = model.predict(s, deterministic=True)[0]
+            done = np.linalg.norm(position - target) <= 0.5
         else:
             if '_target' in dir(env):
                 target = env._target
@@ -145,10 +152,7 @@ def main():
         if ts >= max_episode_steps:
             done = True
 
-        if '_target' in dir(env):
-            target = env._target
-        else:
-            target = env.env._target
+
 
         append_data(data, s, act, target, done, env.sim.data, random)
 

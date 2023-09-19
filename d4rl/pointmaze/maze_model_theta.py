@@ -296,9 +296,9 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.set_marker()
         ob = self._get_obs()
         if self.reward_type == 'sparse':
-            reward = 1.0 if np.linalg.norm(ob[0:2] - self._target) <= 0.5 else 0.0
+            reward = 1.0 if np.linalg.norm(ob[0:2] - ob[-2:]) <= 0.5 else 0.0
         elif self.reward_type == 'dense':
-            reward = np.exp(-np.linalg.norm(ob[0:2] - self._target))
+            reward = np.exp(-np.linalg.norm(ob[0:2] - ob[-2:]))
         else:
             raise ValueError('Unknown reward type %s' % self.reward_type)
         done = False
@@ -316,7 +316,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         pm_theta_vel = self.data.body_xvelr[1][2]
         sin_theta = np.sin(theta)
         cos_theta = np.cos(theta)
-        return np.concatenate([pm_xpos[:2], pm_xvel, [sin_theta, cos_theta, pm_theta_vel], target_xpos]).ravel()
+        return np.concatenate([pm_xpos[:2], pm_xvel, [sin_theta, cos_theta, pm_theta_vel], target_xpos[:2]]).ravel()
         # return np.concatenate([self.sim.data.qpos, self.sim.data.qvel, self._target]).ravel()
 
     def get_target(self):

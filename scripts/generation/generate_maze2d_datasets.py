@@ -69,6 +69,8 @@ def main():
     parser.add_argument('--fname', type=str, default=None, required=True, help='filename to save to')
     parser.add_argument('--policy', type=str, default=None, help='filename to load from')
     parser.add_argument('--camera', type=str, default='topview', help='Camera name', choices=['topview', 'fpv', 'top_rotate'])
+    parser.add_argument('--visible_target', action='store_true', help='turn on goal rendering')
+    parser.add_argument('--obscure_mode', type=str, default=None, help='maze occlusion mode', choices=['center', '3', None])
     args = parser.parse_args()
     print('args.policy', args.policy)
     if args.noisy:
@@ -91,7 +93,12 @@ def main():
     time_step = "0.01"
     integrator = "Euler"
 
-    env = gym.make(args.env_name, frame_skip=frame_skip, integrator=integrator, time_step=time_step)
+    invisible_target = not args.visible_target
+
+    print('args invisible target', invisible_target)
+    env = gym.make(args.env_name, frame_skip=frame_skip, integrator=integrator,
+                   time_step=time_step, invisible_target=invisible_target,
+                   obscure_mode=args.obscure_mode)
     maze = env.str_maze_spec
     max_episode_steps = env._max_episode_steps
 
@@ -108,7 +115,7 @@ def main():
 
     data = reset_data()
     ts = 0
-    rand_act_prob = 0.0
+    rand_act_prob = 0.1
     zero_act_prob = 0.1
     regular_act_prob = 1 - rand_act_prob - zero_act_prob
     act_std = 0.0
@@ -120,14 +127,18 @@ def main():
         position = s[0:2]
         velocity = s[2:4]
 
-        if '_target' in dir(env):
-            target = env._target
+        if args.env_name == 'maze2d-theta-umaze-v0':
+            target = s[-2:]
         else:
-            target = env.env._target
+            if '_target' in dir(env):
+                target = env._target
+            else:
+                target = env.env._target
 
         if args.policy is not None:
             act = model.predict(s, deterministic=True)[0]
             done = np.linalg.norm(position - target) <= 0.5
+            print(i, done, position, target)
         else:
             if '_target' in dir(env):
                 target = env._target

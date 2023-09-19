@@ -37,7 +37,7 @@ XY_ACCEL = 'xy_accel'
 
 def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSCURE_3, control_mode=XY_ACCEL, invisible_target=True):
     maze_arr = parse_maze(maze_str)
-
+    print("invisible target", invisible_target)
     mjcmodel = MJCModel('point_maze')
     mjcmodel.root.compiler(inertiafromgeom="true", angle="radian", coordinate="local")
     # mjcmodel.root.option(timestep="0.01", gravity="0 0 0", iterations="20", integrator="Euler")

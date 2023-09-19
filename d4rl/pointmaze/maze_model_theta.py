@@ -5,7 +5,7 @@ from d4rl import offline_env
 from d4rl.pointmaze.dynamic_mjc import MJCModel
 import numpy as np
 import random
-
+from scipy.spatial.transform import Rotation as R
 
 WALL = 10
 EMPTY = 11
@@ -305,12 +305,18 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         return ob, reward, done, {}
 
     def _get_obs(self):
-        qpos = self.sim.data.qpos
-        qvel = self.sim.data.qvel
-        theta = qpos[2]
+        # qpos = self.sim.data.qpos
+        # qvel = self.sim.data.qvel
+        target_xpos = self.data.site_xpos[1]
+        pm_xpos = self.data.site_xpos[1]
+        pm_xmat = self.data.site_xmat[1].reshape((3, 3))
+        r = R.from_matrix(pm_xmat)
+        theta = r.as_euler('xyz')[2]
+        pm_xvel = self.data.site_xvelp[1]
+        pm_theta_vel = self.data.body_xvelr[1][2]
         sin_theta = np.sin(theta)
         cos_theta = np.cos(theta)
-        return np.concatenate([qpos[:2], qvel[:2], [sin_theta, cos_theta], qvel[2:], qpos[:2] - self._target]).ravel()
+        return np.concatenate([pm_xpos[:2], pm_xvel, [sin_theta, cos_theta, pm_theta_vel], target_xpos]).ravel()
         # return np.concatenate([self.sim.data.qpos, self.sim.data.qvel, self._target]).ravel()
 
     def get_target(self):

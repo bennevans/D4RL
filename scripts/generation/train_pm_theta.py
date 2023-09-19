@@ -13,8 +13,8 @@ if __name__ == '__main__':
     print(vec_env)
     policy_kwargs = dict(log_std_init=-1, net_arch=dict(pi=[256, 256], vf=[512, 512]))
     model = PPO("MlpPolicy", vec_env, verbose=1, policy_kwargs=policy_kwargs, batch_size=512, n_steps=1024, n_epochs=20, tensorboard_log="./logs")
-    model.learn(total_timesteps=10_000_000)
-    model.save("theta_10m_20ep_new")
+    model.learn(total_timesteps=1_000_000)
+    model.save("theta_1m_20ep_global")
     # vec_env = model.get_env()
     # obs = vec_env.reset()
     # for i in range(1000):

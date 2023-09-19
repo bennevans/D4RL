@@ -307,7 +307,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
     def _get_obs(self):
         # qpos = self.sim.data.qpos
         # qvel = self.sim.data.qvel
-        target_xpos = self.data.site_xpos[1]
+        target_xpos = self.data.site_xpos[0]
         pm_xpos = self.data.site_xpos[1]
         pm_xmat = self.data.site_xmat[1].reshape((3, 3))
         r = R.from_matrix(pm_xmat)

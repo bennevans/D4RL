@@ -35,7 +35,7 @@ OBSCURE_3 = '3'
 ANGLE_ACCEL = 'angle_accel'
 XY_ACCEL = 'xy_accel'
 
-def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSCURE_3, control_mode=XY_ACCEL):
+def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSCURE_3, control_mode=XY_ACCEL, invisible_target=True):
     maze_arr = parse_maze(maze_str)
 
     mjcmodel = MJCModel('point_maze')
@@ -52,7 +52,10 @@ def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSC
                width="800",height="800",mark="random",markrgb="1 1 1")
     asset.material(name="groundplane",texture="groundplane",texrepeat="20 20")
     asset.material(name="wall",rgba=".7 .5 .3 1")
-    asset.material(name="target",rgba=".6 .3 .3 1")
+    if invisible_target:
+        asset.material(name="target",rgba="0 0 0 0")
+    else:
+        asset.material(name="target",rgba=".6 .3 .3 1")
 
     visual = mjcmodel.root.visual()
     visual.headlight(ambient=".4 .4 .4",diffuse=".8 .8 .8",specular="0.1 0.1 0.1")
@@ -214,7 +217,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  frame_skip=1,
                  time_step="0.01",
                  integrator="Euler",
-                 obscure_mode=OBSCURE_3,
+                 obscure_mode=None,
+                 invisible_target=True,
                  **kwargs):
         offline_env.OfflineEnv.__init__(self, **kwargs)
 
@@ -229,8 +233,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.integrator = integrator
 
         self._target = np.array([0.0,0.0])
-        print(time_step, integrator)
-        model = point_maze(maze_spec, time_step=self.time_step, integrator=self.integrator, obscure_mode=obscure_mode)
+        model = point_maze(maze_spec, time_step=self.time_step, integrator=self.integrator, obscure_mode=obscure_mode, invisible_target=invisible_target)
         with model.asfile() as f:
             print(f.name)
             # import ipdb; ipdb.set_trace()

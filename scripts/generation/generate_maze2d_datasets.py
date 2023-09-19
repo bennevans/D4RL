@@ -64,7 +64,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--render', action='store_true', help='Render trajectories')
     parser.add_argument('--noisy', action='store_true', help='Noisy actions')
-    parser.add_argument('--env_name', type=str, default='maze2d-theta-umaze-v0', help='Maze type', choices=['maze2d-umaze-v1','maze2d-theta-umaze-v0'])
+    parser.add_argument('--env_name', type=str, default='maze2d-umaze-v0', help='Maze type', choices=['maze2d-umaze-v1','maze2d-theta-umaze-v0'])
     parser.add_argument('--num_samples', type=int, default=int(500000), help='Num samples to collect')
     parser.add_argument('--fname', type=str, default=None, required=True, help='filename to save to')
     parser.add_argument('--policy', type=str, default=None, help='filename to load from')
@@ -122,7 +122,11 @@ def main():
         if args.policy is not None:
             act = model.predict(s, deterministic=True)[0]
         else:
-            act, done = controller.get_action(position, velocity, env._target)
+            if '_target' in dir(env):
+                target = env._target
+            else:
+                target = env.env._target
+            act, done = controller.get_action(position, velocity, target)
 
         act = act + np.random.randn(*act.shape)*act_std
 

@@ -79,7 +79,7 @@ def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSC
     if control_mode == ANGLE_ACCEL:
         particle.joint(name='ball_x', type='slide', pos=[0,0,0], axis=[1,0,0])
         particle.joint(name='ball_y', type='slide', pos=[0,0,0], axis=[0,1,0])
-        particle.joint(name='ball_rot', type='hinge', pos=[0,0,0], axis=[0,0,1])
+        particle.joint(name='ball_rot', type='hinge', pos=[0,0,0], axis=[0,0,1], damping=0.0)
     elif control_mode == XY_ACCEL:
         particle.joint(name='ball_x', type='slide', pos=[0,0,0], axis=[1,0,0])
         particle.joint(name='ball_y', type='slide', pos=[0,0,0], axis=[0,1,0])
@@ -101,8 +101,8 @@ def point_maze(maze_str, time_step="0.01", integrator="Euler", obscure_mode=OBSC
 
     actuator = mjcmodel.root.actuator()
     if control_mode == ANGLE_ACCEL:
-        actuator.velocity(joint="ball_rot", ctrllimited=False, gear=10)
-        actuator.motor(joint="ball_x", ctrllimited=False)
+        actuator.velocity(joint="ball_rot", ctrllimited=True, ctrlrange=[-1.0, 1.0])
+        actuator.motor(joint="ball_x", ctrllimited=True, ctrlrange=[-0.2, 1.0], gear=100)
     elif control_mode == XY_ACCEL:
         actuator.motor(joint="ball_x", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
         actuator.motor(joint="ball_y", ctrlrange=[-1.0, 1.0], ctrllimited=True, gear=100)
@@ -213,13 +213,13 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  maze_spec=U_MAZE,
                  reward_type='dense',
                  reset_target=False,
-                 frame_skip=1,
+                 frame_skip=5,
                  time_step="0.01",
                  integrator="Euler",
                  obscure_mode=OBSCURE_3,
                  control_mode=ANGLE_ACCEL,
-                 theta_scale=1,
-                 x_scale=200,
+                 theta_scale=40.0,
+                 x_scale=10,
                  no_walls=False,
                  invisible_target=True,
                  **kwargs):
@@ -268,31 +268,36 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.action_space.high = np.array([1.0, 1.0])
 
     def step(self, action): # [change in theta and acceleration in x]
+        print('action', action)
+        if not (action == np.array([0.0, 0.0])).all():
+            # action = np.clip(action, -1.0, 1.0)
+            qpos = self.sim.data.qpos.copy()
+            qvel = self.sim.data.qvel.copy()
+            theta = qpos[2]
+            xdot, ydot = qvel[0:2]
 
-        # action = np.clip(action, -1.0, 1.0)
-        qpos = self.sim.data.qpos.copy()
-        qvel = self.sim.data.qvel.copy()
-        theta = qpos[2]
-        xdot, ydot = qvel[0:2]
+            theta_vel = action[0] * self.theta_scale
+            x_accel = action[1] * self.x_scale
 
-        theta_vel = action[0] * self.theta_scale
-        x_accel = action[1] * self.x_scale
+            # print('theta_vel: ', theta_vel)
+            # print('x_accel: ', x_accel)
+            # print('qpos', qpos)
+            # print('qvel', qvel)
+            print('xdot, ydot', xdot, ydot)
+            dx = xdot + x_accel * np.cos(theta) * self.model.opt.timestep
+            dy = ydot + x_accel * np.sin(theta) * self.model.opt.timestep
+            print('dx', dx, 'dy', dy, 'theta_vel', theta_vel)
+            target_qvel = np.array([dx, dy, theta_vel])
+            # import ipdb; ipdb.set_trace()
+            self.set_state(qpos, target_qvel)
 
-        # print('theta_vel: ', theta_vel)
-        # print('x_accel: ', x_accel)
-        # print('qpos', qpos)
-        # print('qvel', qvel)
-
-        dx = xdot + x_accel * np.cos(theta) * self.dt
-        dy = ydot + x_accel * np.sin(theta) * self.dt
-        target_qvel = np.array([dx, dy, theta_vel])
-        self.set_state(qpos, target_qvel)
-
-        # print('target_qvel', target_qvel)
+            print('target_qvel', target_qvel)
 
         self.clip_velocity()
         # self.do_simulation(action, self.frame_skip)
-        self.sim.step()
+        for i in range(self.frame_skip):
+            self.sim.step()
+
         self.set_marker()
         ob = self._get_obs()
         if self.reward_type == 'sparse':
@@ -333,7 +338,9 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.data.site_xpos[self.model.site_name2id('target_site')] = np.array([self._target[0]+1, self._target[1]+1, 0.0])
 
     def clip_velocity(self):
+        theta_vel = np.clip(self.sim.data.qvel[2], -50.0, 50.0)
         qvel = np.clip(self.sim.data.qvel, -5.0, 5.0)
+        qvel[2] = theta_vel
         self.set_state(self.sim.data.qpos, qvel)
 
     def reset_model(self):
@@ -342,7 +349,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         reset_angle = self.np_random.uniform(low=-np.pi, high=np.pi)
         reset_location = np.concatenate([reset_location, [reset_angle]])
         qpos = reset_location + self.np_random.uniform(low=-.1, high=.1, size=self.model.nq)
-        qvel = self.init_qvel + self.np_random.randn(self.model.nv) * .1
+        qvel = self.init_qvel # + self.np_random.randn(self.model.nv) * .1
         self.set_state(qpos, qvel)
         if self.reset_target:
             self.set_target()
@@ -378,21 +385,40 @@ if __name__ == '__main__':
         env.data.qpos[1] = 1.0
         env.data.qpos[2] = np.pi / 2
 
+        for i in range(5):
+            env.render(camera_name="fpv")
+            obs, rew, done, info = env.step(rotate_action)
+            print('turn', i, env.data.qpos, env.data.qvel)
+            # print(obs[:2], obs[-2:])
+
+        # asdf()
         while True:
-            for i in range(10):
-                env.render(camera_name="fpv")
-                env.step(forward_action)
-                print('fwd', env.data.qpos, env.data.qvel)
+            # for i in range(30):
+            #     env.render()
+            #     obs, rew, done, info = env.step(zero_action)
+            #     print('stop', i, env.data.qpos, env.data.qvel)
+            #     # print(obs[:2], obs[-2:])
 
             for i in range(10):
                 env.render(camera_name="fpv")
-                env.step(rotate_action)
+                obs, rew, done, info = env.step(rotate_action)
                 print('turn', i, env.data.qpos, env.data.qvel)
+                # print(obs[:2], obs[-2:])
 
-            # for i in range(20):
-            #     env.render(camera_name="fpv")
-            #     env.step(-forward_action)
-            #     print('fwd', env.data.qpos, env.data.qvel)
+            for i in range(10):
+                env.render(camera_name="fpv")
+                obs, rew, done, info = env.step(forward_action)
+                print('fwd', env.data.qpos, env.data.qvel)
+                # print(obs[:2], obs[-2:])
+
+
+
+            # input('press enter to continue')
+
+            for i in range(10):
+                env.render(camera_name="fpv")
+                env.step(-forward_action)
+                print('fwd', env.data.qpos, env.data.qvel)
             
             # for i in range(30):
             #     env.render()

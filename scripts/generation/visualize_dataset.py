@@ -13,7 +13,7 @@ if __name__ == '__main__':
              "pointmass_obscure_1.hdf5",
              "pointmass_obscure_3.hdf5",
              "pointmass_fpv.hdf5"]
-    files = ["pointmass_theta_top.hdf5",]
+    files = ["pointmass0_hidden.hdf5",]
     
     for file in files:
         data_to_video(file)

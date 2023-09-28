@@ -26,11 +26,11 @@ def reset_data():
             }
 
 def append_data(data, s, a, tgt, done, env_data, rand):
-    data['observations'].append(s)
-    data['actions'].append(a)
+    data['observations'].append(s.copy())
+    data['actions'].append(a.copy())
     data['rewards'].append(0.0)
     data['terminals'].append(done)
-    data['infos/goal'].append(tgt)
+    data['infos/goal'].append(tgt.copy())
     data['infos/qpos'].append(env_data.qpos.ravel().copy())
     data['infos/qvel'].append(env_data.qvel.ravel().copy())
     data['rand_acts'].append(rand)
@@ -138,7 +138,7 @@ def main():
         if args.policy is not None:
             act = model.predict(s, deterministic=True)[0]
             done = np.linalg.norm(position - target) <= 0.5
-            print(i, done, position, target)
+            # print(i, done, position, target)
         else:
             if '_target' in dir(env):
                 target = env._target
@@ -163,8 +163,6 @@ def main():
         if ts >= max_episode_steps:
             done = True
 
-
-
         append_data(data, s, act, target, done, env.sim.data, random)
 
         rgb = env.render(mode='rgb_array', camera_name=args.camera)
@@ -182,6 +180,7 @@ def main():
             env.set_target(target_location=target_location)
             done = False
             ts = 0
+            s = env.unwrapped._get_obs()
         else:
             s = ns
 

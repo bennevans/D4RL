@@ -214,11 +214,12 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  maze_spec=U_MAZE,
                  reward_type='dense',
                  reset_target=False,
-                 frame_skip=1,
+                 frame_skip=5,
                  time_step="0.01",
                  integrator="Euler",
                  obscure_mode=None,
                  invisible_target=True,
+                 include_actions=False,
                  **kwargs):
         offline_env.OfflineEnv.__init__(self, **kwargs)
 
@@ -231,6 +232,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.frame_skip = frame_skip
         self.time_step = time_step
         self.integrator = integrator
+        self.include_actions = include_actions
 
         self._target = np.array([0.0,0.0])
         model = point_maze(maze_spec, time_step=self.time_step, integrator=self.integrator, obscure_mode=obscure_mode, invisible_target=invisible_target)
@@ -260,6 +262,9 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.do_simulation(action, self.frame_skip)
         self.set_marker()
         ob = self._get_obs()
+        if self.include_actions:
+            ob = np.concatenate([ob, action])
+
         if self.reward_type == 'sparse':
             reward = 1.0 if np.linalg.norm(ob[0:2] - self._target) <= 0.5 else 0.0
         elif self.reward_type == 'dense':
@@ -297,7 +302,10 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.set_state(qpos, qvel)
         if self.reset_target:
             self.set_target()
-        return self._get_obs()
+        ret = self._get_obs()
+        if self.include_actions:
+            ret = np.concatenate([ret, np.zeros_like(self.action_space.sample())])
+        return ret
 
     def reset_to_location(self, location):
         self.sim.reset()

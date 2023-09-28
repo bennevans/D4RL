@@ -222,7 +222,9 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
                  x_scale=10,
                  no_walls=False,
                  invisible_target=True,
+                 include_actions=False,
                  **kwargs):
+        print(kwargs)
         offline_env.OfflineEnv.__init__(self, **kwargs)
 
         self.render_mode = None
@@ -237,14 +239,12 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.integrator = integrator
         self.theta_scale = theta_scale
         self.x_scale = x_scale
+        self.include_actions = include_actions
 
         self._target = np.array([0.0,0.0])
-        print(time_step, integrator)
         model = point_maze(maze_spec, time_step=self.time_step, integrator=self.integrator,
                            obscure_mode=obscure_mode, control_mode=control_mode, no_walls=no_walls, invisible_target=invisible_target)
         with model.asfile() as f:
-            print(f.name)
-            # import ipdb; ipdb.set_trace()
             mujoco_env.MujocoEnv.__init__(self, model_path=f.name,
                                           frame_skip=frame_skip)
         utils.EzPickle.__init__(self)
@@ -268,7 +268,6 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.action_space.high = np.array([1.0, 1.0])
 
     def step(self, action): # [change in theta and acceleration in x]
-        print('action', action)
         if not (action == np.array([0.0, 0.0])).all():
             # action = np.clip(action, -1.0, 1.0)
             qpos = self.sim.data.qpos.copy()
@@ -279,27 +278,22 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
             theta_vel = action[0] * self.theta_scale
             x_accel = action[1] * self.x_scale
 
-            # print('theta_vel: ', theta_vel)
-            # print('x_accel: ', x_accel)
-            # print('qpos', qpos)
-            # print('qvel', qvel)
-            print('xdot, ydot', xdot, ydot)
             dx = xdot + x_accel * np.cos(theta) * self.model.opt.timestep
             dy = ydot + x_accel * np.sin(theta) * self.model.opt.timestep
-            print('dx', dx, 'dy', dy, 'theta_vel', theta_vel)
             target_qvel = np.array([dx, dy, theta_vel])
-            # import ipdb; ipdb.set_trace()
             self.set_state(qpos, target_qvel)
 
-            print('target_qvel', target_qvel)
 
         self.clip_velocity()
-        # self.do_simulation(action, self.frame_skip)
         for i in range(self.frame_skip):
             self.sim.step()
+            # self.set_state(qpos, target_qvel) ?
 
         self.set_marker()
-        ob = self._get_obs()
+        if self.include_actions:
+            ob = np.concatenate([self._get_obs(), action])
+        else:
+            ob = self._get_obs()
         if self.reward_type == 'sparse':
             reward = 1.0 if np.linalg.norm(ob[0:2] - ob[-2:]) <= 0.5 else 0.0
         elif self.reward_type == 'dense':
@@ -353,6 +347,9 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.set_state(qpos, qvel)
         if self.reset_target:
             self.set_target()
+
+        if self.include_actions:
+            return np.concatenate([self._get_obs(), np.zeros(2)])
         return self._get_obs()
 
     def reset_to_location(self, location):
